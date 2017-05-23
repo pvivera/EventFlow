@@ -21,45 +21,41 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using System;
-using System.Data.Common;
-using EventFlow.Core;
+using System.ComponentModel.DataAnnotations.Schema;
+using EventFlow.Aggregates;
+using EventFlow.PostgreSQL.ReadStores.Attributes;
+using EventFlow.ReadStores;
+using EventFlow.TestHelpers.Aggregates;
+using EventFlow.TestHelpers.Aggregates.Entities;
+using EventFlow.TestHelpers.Aggregates.Events;
 
-namespace EventFlow.Sql.Connections
+namespace EventFlow.PostgreSQL.Tests.IntegrationTests.ReadStores.ReadModels
 {
-    public abstract class SqlConfiguration<T> : ISqlConfiguration<T>
-        where T : ISqlConfiguration<T>
+    [Table("ReadModel-ThingyMessage")]
+    public class PostgreSQLThingyMessageReadModel : IReadModel,
+        IAmReadModelFor<ThingyAggregate, ThingyId, ThingyMessageAddedEvent>
     {
-        public string ConnectionString { get; private set; }
+        public string ThingyId { get; set; }
 
-        public RetryDelay TransientRetryDelay { get; private set; } = RetryDelay.Between(
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.FromMilliseconds(100));
+        [PostgreSQLReadModelIdentityColumn]
+        public string MessageId { get; set; }
 
-        public int TransientRetryCount { get; private set; } = 2;
+        public string Message { get; set; }
 
-        public T SetConnectionString(string connectionString)
+        public void Apply(IReadModelContext context, IDomainEvent<ThingyAggregate, ThingyId, ThingyMessageAddedEvent> domainEvent)
         {
-            ConnectionString = connectionString;
+            ThingyId = domainEvent.AggregateIdentity.Value;
 
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
+            var thingyMessage = domainEvent.AggregateEvent.ThingyMessage;
+            MessageId = thingyMessage.Id.Value;
+            Message = thingyMessage.Message;
         }
 
-        public T SetTransientRetryDelay(RetryDelay retryDelay)
+        public ThingyMessage ToThingyMessage()
         {
-            TransientRetryDelay = retryDelay;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
-        }
-
-        public T SetTransientRetryCount(int retryCount)
-        {
-            TransientRetryCount = retryCount;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
+            return new ThingyMessage(
+                ThingyMessageId.With(MessageId),
+                Message);
         }
     }
 }

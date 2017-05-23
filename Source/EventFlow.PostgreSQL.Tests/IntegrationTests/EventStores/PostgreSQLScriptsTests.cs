@@ -21,45 +21,45 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using System;
-using System.Data.Common;
-using EventFlow.Core;
+using System.Linq;
+using EventFlow.Extensions;
+using EventFlow.PostgreSQL.EventStores;
+using EventFlow.TestHelpers;
+using EventFlow.TestHelpers.PostgreSQL;
+using NUnit.Framework;
 
-namespace EventFlow.Sql.Connections
+namespace EventFlow.PostgreSQL.Tests.IntegrationTests.EventStores
 {
-    public abstract class SqlConfiguration<T> : ISqlConfiguration<T>
-        where T : ISqlConfiguration<T>
+    [Category(Categories.Integration)]
+    public class PostgreSQLScriptsTests
     {
-        public string ConnectionString { get; private set; }
+        private IPostgreSQLDatabase _msSqlDatabase;
 
-        public RetryDelay TransientRetryDelay { get; private set; } = RetryDelay.Between(
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.FromMilliseconds(100));
-
-        public int TransientRetryCount { get; private set; } = 2;
-
-        public T SetConnectionString(string connectionString)
+        [Test]
+        public void SqlScriptsAreIdempotent()
         {
-            ConnectionString = connectionString;
+            // Arrange
+            var sqlScripts = EventFlowEventStoresPostgreSQL.GetSqlScripts().ToList();
 
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
+            // Act
+            foreach (var _ in Enumerable.Range(0, 2))
+            {
+                foreach (var sqlScript in sqlScripts)
+                {
+                    _msSqlDatabase.Execute(sqlScript.Content);
+                }
+            }
         }
 
-        public T SetTransientRetryDelay(RetryDelay retryDelay)
+        [SetUp]
+        public void SetUp()
         {
-            TransientRetryDelay = retryDelay;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
+            _msSqlDatabase = PostgreSQLHelpz.CreateDatabase("eventflow");
         }
 
-        public T SetTransientRetryCount(int retryCount)
+        public void TearDown()
         {
-            TransientRetryCount = retryCount;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
+            _msSqlDatabase.DisposeSafe("PostgreSQL database");
         }
     }
 }

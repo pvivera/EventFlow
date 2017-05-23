@@ -21,45 +21,26 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using System;
-using System.Data.Common;
-using EventFlow.Core;
+using System.Linq;
+using EventFlow.PostgreSQL.SnapshotStores;
+using EventFlow.TestHelpers;
+using FluentAssertions;
+using NUnit.Framework;
 
-namespace EventFlow.Sql.Connections
+namespace EventFlow.PostgreSQL.Tests.IntegrationTests.SnapshotStores
 {
-    public abstract class SqlConfiguration<T> : ISqlConfiguration<T>
-        where T : ISqlConfiguration<T>
+    [Category(Categories.Integration)]
+    public class EventFlowSnapshotStoresPostgreSQLTests
     {
-        public string ConnectionString { get; private set; }
-
-        public RetryDelay TransientRetryDelay { get; private set; } = RetryDelay.Between(
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.FromMilliseconds(100));
-
-        public int TransientRetryCount { get; private set; } = 2;
-
-        public T SetConnectionString(string connectionString)
+        [Test]
+        public void GetSqlScripts()
         {
-            ConnectionString = connectionString;
+            // Act
+            var sqlScripts = EventFlowSnapshotStoresPostgreSQL.GetSqlScripts().ToDictionary(s => s.Name, s => s);
 
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
-        }
-
-        public T SetTransientRetryDelay(RetryDelay retryDelay)
-        {
-            TransientRetryDelay = retryDelay;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
-        }
-
-        public T SetTransientRetryCount(int retryCount)
-        {
-            TransientRetryCount = retryCount;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
+            // Assert
+            sqlScripts.Should().HaveCount(1);
+            sqlScripts.Should().ContainKey("SnapshotStores.Scripts.0001 - Create EventFlowSnapshots.sql");
         }
     }
 }

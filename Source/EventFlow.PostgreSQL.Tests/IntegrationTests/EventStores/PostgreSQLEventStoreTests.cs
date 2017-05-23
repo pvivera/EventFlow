@@ -21,45 +21,42 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using System;
-using System.Data.Common;
-using EventFlow.Core;
+using EventFlow.Configuration;
+using EventFlow.Extensions;
+using EventFlow.PostgreSQL.EventStores;
+using EventFlow.PostgreSQL.Extensions;
+using EventFlow.TestHelpers;
+using EventFlow.TestHelpers.PostgreSQL;
+using EventFlow.TestHelpers.Suites;
+using NUnit.Framework;
 
-namespace EventFlow.Sql.Connections
+namespace EventFlow.PostgreSQL.Tests.IntegrationTests.EventStores
 {
-    public abstract class SqlConfiguration<T> : ISqlConfiguration<T>
-        where T : ISqlConfiguration<T>
+    [Category(Categories.Integration)]
+    public class PostgreSQLEventStoreTests : TestSuiteForEventStore
     {
-        public string ConnectionString { get; private set; }
+        private IPostgreSQLDatabase _testDatabase;
 
-        public RetryDelay TransientRetryDelay { get; private set; } = RetryDelay.Between(
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.FromMilliseconds(100));
-
-        public int TransientRetryCount { get; private set; } = 2;
-
-        public T SetConnectionString(string connectionString)
+        protected override IRootResolver CreateRootResolver(IEventFlowOptions eventFlowOptions)
         {
-            ConnectionString = connectionString;
+            _testDatabase = PostgreSQLHelpz.CreateDatabase("eventflow");
 
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
+            var resolver = eventFlowOptions
+                .ConfigurePostgreSQL(PostgreSQLConfiguration.New.SetConnectionString(_testDatabase.ConnectionString.Value))
+                .UseEventStore<PostgreSQLEventPersistence>()
+                .CreateResolver();
+
+            var databaseMigrator = resolver.Resolve<IPostgreSQLDatabaseMigrator>();
+            EventFlowEventStoresPostgreSQL.MigrateDatabase(databaseMigrator);
+            databaseMigrator.MigrateDatabaseUsingEmbeddedScripts(GetType().Assembly);
+
+            return resolver;
         }
 
-        public T SetTransientRetryDelay(RetryDelay retryDelay)
+        [TearDown]
+        public void TearDown()
         {
-            TransientRetryDelay = retryDelay;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
-        }
-
-        public T SetTransientRetryCount(int retryCount)
-        {
-            TransientRetryCount = retryCount;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
+            _testDatabase.Dispose();
         }
     }
 }

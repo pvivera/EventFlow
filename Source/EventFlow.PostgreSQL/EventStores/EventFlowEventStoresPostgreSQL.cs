@@ -21,45 +21,30 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using System;
-using System.Data.Common;
-using EventFlow.Core;
+using System.Collections.Generic;
+using System.Reflection;
+using EventFlow.Sql.Extensions;
+using EventFlow.Sql.Migrations;
 
-namespace EventFlow.Sql.Connections
+namespace EventFlow.PostgreSQL.EventStores
 {
-    public abstract class SqlConfiguration<T> : ISqlConfiguration<T>
-        where T : ISqlConfiguration<T>
+    public static class EventFlowEventStoresPostgreSQL
     {
-        public string ConnectionString { get; private set; }
+        public static Assembly Assembly { get; } =
+#if NETSTANDARD1_6
+            typeof(EventFlowEventStoresPostgreSQL).GetTypeInfo().Assembly;
+#else
+            typeof(EventFlowEventStoresPostgreSQL).Assembly;
+#endif
 
-        public RetryDelay TransientRetryDelay { get; private set; } = RetryDelay.Between(
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.FromMilliseconds(100));
-
-        public int TransientRetryCount { get; private set; } = 2;
-
-        public T SetConnectionString(string connectionString)
+        public static IEnumerable<SqlScript> GetSqlScripts()
         {
-            ConnectionString = connectionString;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
+            return Assembly.GetEmbeddedSqlScripts("EventFlow.PostgreSQL.EventStores.Scripts");
         }
 
-        public T SetTransientRetryDelay(RetryDelay retryDelay)
+        public static void MigrateDatabase(IPostgreSQLDatabaseMigrator msSqlDatabaseMigrator)
         {
-            TransientRetryDelay = retryDelay;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
-        }
-
-        public T SetTransientRetryCount(int retryCount)
-        {
-            TransientRetryCount = retryCount;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
+            msSqlDatabaseMigrator.MigrateDatabaseUsingScripts(GetSqlScripts());
         }
     }
 }

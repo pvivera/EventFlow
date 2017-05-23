@@ -22,44 +22,12 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using System;
-using System.Data.Common;
-using EventFlow.Core;
+using EventFlow.Sql.ReadModels.Attributes;
 
-namespace EventFlow.Sql.Connections
+namespace EventFlow.PostgreSQL.ReadStores.Attributes
 {
-    public abstract class SqlConfiguration<T> : ISqlConfiguration<T>
-        where T : ISqlConfiguration<T>
+    [AttributeUsage(AttributeTargets.Property | AttributeTargets.Field)]
+    public class PostgreSQLReadModelIdentityColumnAttribute : SqlReadModelIdentityColumnAttribute
     {
-        public string ConnectionString { get; private set; }
-
-        public RetryDelay TransientRetryDelay { get; private set; } = RetryDelay.Between(
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.FromMilliseconds(100));
-
-        public int TransientRetryCount { get; private set; } = 2;
-
-        public T SetConnectionString(string connectionString)
-        {
-            ConnectionString = connectionString;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
-        }
-
-        public T SetTransientRetryDelay(RetryDelay retryDelay)
-        {
-            TransientRetryDelay = retryDelay;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
-        }
-
-        public T SetTransientRetryCount(int retryCount)
-        {
-            TransientRetryCount = retryCount;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
-        }
     }
 }

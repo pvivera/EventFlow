@@ -22,44 +22,25 @@
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
 using System;
-using System.Data.Common;
-using EventFlow.Core;
+using EventFlow.Extensions;
 
-namespace EventFlow.Sql.Connections
+namespace EventFlow.PostgreSQL.ReadStores
 {
-    public abstract class SqlConfiguration<T> : ISqlConfiguration<T>
-        where T : ISqlConfiguration<T>
+    [Obsolete("EventFlow no longer dictates any properties for the MSSQL read models. Read the updated documentation")]
+    public abstract class PostgreSQLReadModel : IPostgreSQLReadModel
     {
-        public string ConnectionString { get; private set; }
+        public string AggregateId { get; set; }
+        public DateTimeOffset CreateTime { get; set; }
+        public DateTimeOffset UpdatedTime { get; set; }
+        public int LastAggregateSequenceNumber { get; set; }
 
-        public RetryDelay TransientRetryDelay { get; private set; } = RetryDelay.Between(
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.FromMilliseconds(100));
-
-        public int TransientRetryCount { get; private set; } = 2;
-
-        public T SetConnectionString(string connectionString)
+        public override string ToString()
         {
-            ConnectionString = connectionString;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
-        }
-
-        public T SetTransientRetryDelay(RetryDelay retryDelay)
-        {
-            TransientRetryDelay = retryDelay;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
-        }
-
-        public T SetTransientRetryCount(int retryCount)
-        {
-            TransientRetryCount = retryCount;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
+            return string.Format(
+                "Read model '{0}' for '{1} v{2}'",
+                GetType().PrettyPrint(),
+                AggregateId,
+                LastAggregateSequenceNumber);
         }
     }
 }

@@ -21,45 +21,36 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using System;
-using System.Data.Common;
+using System.Linq;
+using System.Threading;
+using System.Threading.Tasks;
 using EventFlow.Core;
+using EventFlow.PostgreSQL.Tests.IntegrationTests.ReadStores.ReadModels;
+using EventFlow.Queries;
+using EventFlow.TestHelpers.Aggregates;
+using EventFlow.TestHelpers.Aggregates.Queries;
 
-namespace EventFlow.Sql.Connections
+namespace EventFlow.PostgreSQL.Tests.IntegrationTests.ReadStores.QueryHandlers
 {
-    public abstract class SqlConfiguration<T> : ISqlConfiguration<T>
-        where T : ISqlConfiguration<T>
+    public class PostgreSQLThingyGetQueryHandler : IQueryHandler<ThingyGetQuery, Thingy>
     {
-        public string ConnectionString { get; private set; }
+        private readonly IPostgreSQLConnection _postgreSqlConnection;
 
-        public RetryDelay TransientRetryDelay { get; private set; } = RetryDelay.Between(
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.FromMilliseconds(100));
-
-        public int TransientRetryCount { get; private set; } = 2;
-
-        public T SetConnectionString(string connectionString)
+        public PostgreSQLThingyGetQueryHandler(
+            IPostgreSQLConnection postgreSqlConnection)
         {
-            ConnectionString = connectionString;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
+            _postgreSqlConnection = postgreSqlConnection;
         }
 
-        public T SetTransientRetryDelay(RetryDelay retryDelay)
+        public async Task<Thingy> ExecuteQueryAsync(ThingyGetQuery query, CancellationToken cancellationToken)
         {
-            TransientRetryDelay = retryDelay;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
-        }
-
-        public T SetTransientRetryCount(int retryCount)
-        {
-            TransientRetryCount = retryCount;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
+            var readModels = await _postgreSqlConnection.QueryAsync<PostgreSQLThingyReadModel>(
+                Label.Named("postgresql-fetch-test-read-model"),
+                cancellationToken,
+                "SELECT * FROM [ReadModel-ThingyAggregate] WHERE AggregateId = @AggregateId",
+                new { AggregateId = query.ThingyId.Value })
+                .ConfigureAwait(false);
+            return readModels.SingleOrDefault()?.ToThingy();
         }
     }
 }

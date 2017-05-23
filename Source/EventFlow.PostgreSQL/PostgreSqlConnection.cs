@@ -21,45 +21,40 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using System;
-using System.Data.Common;
+using System.Collections.Generic;
+using System.Threading;
+using System.Threading.Tasks;
 using EventFlow.Core;
+using EventFlow.Logs;
+using EventFlow.PostgreSQL.Connections;
+using EventFlow.PostgreSQL.Integrations;
+using EventFlow.PostgreSQL.RetryStrategies;
+using EventFlow.Sql.Connections;
 
-namespace EventFlow.Sql.Connections
+namespace EventFlow.PostgreSQL
 {
-    public abstract class SqlConfiguration<T> : ISqlConfiguration<T>
-        where T : ISqlConfiguration<T>
+    public class PostgreSQLConnection : SqlConnection<IPostgreSQLConfiguration, IPostgreSQLErrorRetryStrategy, IPostgreSQLConnectionFactory>, IPostgreSQLConnection
     {
-        public string ConnectionString { get; private set; }
-
-        public RetryDelay TransientRetryDelay { get; private set; } = RetryDelay.Between(
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.FromMilliseconds(100));
-
-        public int TransientRetryCount { get; private set; } = 2;
-
-        public T SetConnectionString(string connectionString)
+        public PostgreSQLConnection(
+            ILog log,
+            IPostgreSQLConfiguration configuration,
+            IPostgreSQLConnectionFactory connectionFactory,
+            ITransientFaultHandler<IPostgreSQLErrorRetryStrategy> transientFaultHandler)
+            : base(log, configuration, connectionFactory, transientFaultHandler)
         {
-            ConnectionString = connectionString;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
         }
 
-        public T SetTransientRetryDelay(RetryDelay retryDelay)
+        public override Task<IReadOnlyCollection<TResult>> InsertMultipleAsync<TResult, TRow>(
+            Label label,
+            CancellationToken cancellationToken,
+            string sql,
+            IEnumerable<TRow> rows)
         {
-            TransientRetryDelay = retryDelay;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
-        }
-
-        public T SetTransientRetryCount(int retryCount)
-        {
-            TransientRetryCount = retryCount;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
+            Log.Verbose(
+                "Using optimised table type to insert with SQL: {0}",
+                sql);
+            var tableParameter = new TableParameter<TRow>("@rows", rows, new {});
+            return QueryAsync<TResult>(label, cancellationToken, sql, tableParameter);
         }
     }
 }

@@ -21,45 +21,20 @@
 // IN AN ACTION OF CONTRACT, TORT OR OTHERWISE, ARISING FROM, OUT OF OR IN
 // CONNECTION WITH THE SOFTWARE OR THE USE OR OTHER DEALINGS IN THE SOFTWARE.
 
-using System;
-using System.Data.Common;
-using EventFlow.Core;
+using System.Data;
+using System.Threading;
+using System.Threading.Tasks;
+using Npgsql;
 
-namespace EventFlow.Sql.Connections
+namespace EventFlow.PostgreSQL.Connections
 {
-    public abstract class SqlConfiguration<T> : ISqlConfiguration<T>
-        where T : ISqlConfiguration<T>
+    public class PostgreSQLConnectionFactory : IPostgreSQLConnectionFactory
     {
-        public string ConnectionString { get; private set; }
-
-        public RetryDelay TransientRetryDelay { get; private set; } = RetryDelay.Between(
-            TimeSpan.FromMilliseconds(50),
-            TimeSpan.FromMilliseconds(100));
-
-        public int TransientRetryCount { get; private set; } = 2;
-
-        public T SetConnectionString(string connectionString)
+        public async Task<IDbConnection> OpenConnectionAsync(string connectionString, CancellationToken cancellationToken)
         {
-            ConnectionString = connectionString;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
-        }
-
-        public T SetTransientRetryDelay(RetryDelay retryDelay)
-        {
-            TransientRetryDelay = retryDelay;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
-        }
-
-        public T SetTransientRetryCount(int retryCount)
-        {
-            TransientRetryCount = retryCount;
-
-            // Are there alternatives to this double cast?
-            return (T)(object)this;
+            var sqlConnection = new NpgsqlConnection(connectionString);
+            await sqlConnection.OpenAsync(cancellationToken).ConfigureAwait(false);
+            return sqlConnection;
         }
     }
 }
